@@ -1,0 +1,51 @@
+{
+    "name": "severstal_steel_defect_detection",
+    "id": "1",
+    "seed": 42,
+    "logger_name": "SSDefect",
+    "test_csv": "sample_submission.csv",
+    "train_csv": "train.csv",
+    "validation" : true,
+    "valid_size": 0.07,
+    "return_type": 0,
+    "path":{
+                    "train": "train_images/",
+                    "valid": "train_images/",
+                    "test": "test_images/"
+                },
+    "batch_size": [3,2,2],
+    "threshold": 0.5,
+    "thresholds":{
+                    "threshold_labels": [0.5,0.5,0.5,0.5],
+                    "threshold_pixels": [0.4,0.4,0.4,0.4],
+                    "threshold_area": [400,600,1000,2000]
+                },
+    "visualize":{
+                    "sample":5,
+                    "save_path": "visualize/",
+                    "image_path": "train_images/"
+                },
+    "preprocess":{
+    	    		"input_size": [256,400]
+        		},
+    "postprocess":{
+    	              "threshold": 0.5
+                  },
+    "model":{
+        		"module": "efficientnetb5_s",
+        		"name": "EfficientNetB5Segmentation",
+                "initial_weights": "/home/avinash/Desktop/DL/weights/efficientnet-b5-b6417697.pth",
+                "inference_model": "best.pth"
+    		},
+    "num_class": 4,
+    "optimizer": {
+        		    "name": "SGD",
+                    "lr": {
+                             "0.01": 10,
+                			  "0.001": 10
+                			},
+                    "momentum": 0.9,
+                    "weight_decay": 0.0001
+                 },
+    "callback": ""
+}

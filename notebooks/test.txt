@@ -1,0 +1,119 @@
+def segmentPredict():
+    res = []
+    model = Model([getHengsB5(),getmyFPN()])
+    total = len(ds[0].dataset)//batch_size
+    for loaders_batch in tqdm_notebook(zip(*ds), total=total):
+        preds = []
+        for i in range(len(model.models)):
+            preds.append([])
+        image_file = []
+        for i, (ids,features) in enumerate(loaders_batch):
+            torch.cuda.empty_cache()
+            p = model(features)
+            for t in range(len(model.models)):
+                if p[t].shape[1] == 5:
+                    p[t] = p[t][:,1:,:,:]
+                    if i == 1:
+                        p[t] = torch.flip(p[t],[2])
+                    if i == 2:
+                        p[t] = torch.flip(p[t],[3])
+                preds[t].append(p[t])
+            
+#             preds.append(p)
+            image_file = ids
+    
+        for t in range(len(preds)):
+            preds[t] = torch.stack(preds[t])
+            preds[t] = torch.mean(preds[t], dim=0)
+            preds[t] = torch.sigmoid(preds[t])
+            
+#             if i!=1 and i!=2:
+#                 preds[t] = sharpen(preds[t],0)
+#             else:
+#                 preds[t] = sharpen(preds[t])
+        
+        preds = torch.stack(preds)
+        preds = torch.mean(preds, dim=0)
+        preds = preds.detach().cpu().numpy()
+        
+        for p, file in zip(preds, image_file):
+            file = os.path.basename(file)
+            for i in range(4):
+                p_channel = p[i]
+                imageid_classid = file+'_'+str(i+1)
+                p_channel = (p_channel>thresholds_pixels[i]).astype(np.uint8)
+                val = df_class[df_class.ImageId_ClassId == imageid_classid]['EncodedPixels'].values[0]
+                if val == '1 1' and p_channel.sum() > min_area[i] : 
+                    res.append({
+                        'ImageId_ClassId': imageid_classid,
+                        'EncodedPixels': '1 1'
+                    })
+                else:
+                    res.append({
+                        'ImageId_ClassId': imageid_classid,
+                        'EncodedPixels': ''
+                    })
+
+    df = pd.DataFrame(res)
+    df.to_csv('submission.csv', index=False)
+
+def classifierPredict():
+    
+    res = []
+    model = Model([getBibekClassifier(),getmyClassifier(),getSeresnet50Classifier()])
+    total = len(ds[0].dataset)//batch_size
+    for loaders_batch in tqdm_notebook(zip(*ds), total=total):
+        preds = []
+        for i in range(len(model.models)):
+            preds.append([])
+        image_file = []
+        for i, (ids,features) in enumerate(loaders_batch):
+            torch.cuda.empty_cache()
+            p = model(features)
+            for t in range(len(model.models)):
+                preds[t].append(p[t])
+#             if i == 1:
+#                 p = torch.flip(p,[2])
+#             if i == 2:
+#                 p = torch.flip(p,[3])
+#             if i!=1 and i!=2:
+#                 p = sharpen(p,0)
+#             else:
+#                 p = sharpen(p)
+#             preds.append(p)
+            image_file = ids
+        for t in range(len(preds)):
+            preds[t] = torch.stack(preds[t])
+            preds[t] = torch.mean(preds[t], dim=0)
+            preds[t] = torch.sigmoid(preds[t])
+        
+        preds = torch.stack(preds)
+        preds = torch.mean(preds, dim=0)
+        preds = preds.detach().cpu().numpy()
+        
+        for p, file in zip(preds, image_file):
+            file = os.path.basename(file)
+            for i in range(4):
+                p_channel = p[i]
+                imageid_classid = file+'_'+str(i+1)
+                p_channel = (p_channel>thresholds[i]).astype(np.uint8)
+                if p_channel: 
+                    res.append({
+                        'ImageId_ClassId': imageid_classid,
+                        'EncodedPixels': '1 1'
+                    })
+                else:
+                    res.append({
+                        'ImageId_ClassId': imageid_classid,
+                        'EncodedPixels': ''
+                    })
+
+    df = pd.DataFrame(res)
+    df.to_csv('submission.csv', index=False)
+
+# classifierPredict()
+df_class = None
+if not os.path.exists('train_submission.csv'):
+    classifierPredict()
+df_class = pd.read_csv('train_submission.csv')
+df_class.fillna('',axis=1,inplace=True)
